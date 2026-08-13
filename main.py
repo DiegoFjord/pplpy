@@ -20,6 +20,9 @@ info_id = None
 column = None
 curr_id = None
 
+# entry state
+command = False
+
 dbsetup()
 #add_user()
 
@@ -174,16 +177,29 @@ def update_combo_options(combo_type):
     if(combo_type == "Person_Info"):
         info_options, info_ids = info_list(person_id)
         info_combo["values"] = info_options
+# entry toggle function
+def entry_toggle():
+    global command
+    if(command):
+        command_button.config(activebackground="SeaGreen1",bg="white")
+    else:
+        command_button.config(activebackground="white",bg="SeaGreen1")
+    command = not command
+
 
 top = ttk.Frame()
 #dbdelete button
-db_del = ttk.Button(top, text="Del", command=db_delete)
+db_del = tk.Button(top, text="del", command=db_delete, bg="firebrick1")
 # Add a button to trigger the database pull
-label = tk.Label(top, text="hello",anchor="w")
+label = tk.Label(top, text="N/A",anchor="sw")
 
+entry_row = ttk.Frame()
 # entry to control data
 entry_var = tk.StringVar()
-entry = ttk.Entry(root, textvariable=entry_var,width=30)
+command_button = tk.Button(entry_row, text="[~]", command=entry_toggle)
+command_button.config(activebackground="SeaGreen1",bg="white")
+
+entry = ttk.Entry(entry_row, textvariable=entry_var)
 entry.bind("<Return>", entry_enter)
 
 # dropdown frame
@@ -218,10 +234,14 @@ tree.configure(yscrollcommand=scrollbar.set)
 tree.bind("<Button-1>", on_tree_click)
 
 # Pack layout
-top.pack(fill=tk.X, anchor="w")
+top.pack(fill=tk.X)
 db_del.pack(side=tk.LEFT)
-label.pack(side=tk.LEFT)
-entry.pack(fill=tk.X)
+label.pack(fill="both", expand=True, anchor="s")
+
+entry_row.pack(fill=tk.X)
+command_button.pack(side=tk.LEFT)
+entry.pack(fill="both", expand=True)
+
 drops.pack(side=tk.LEFT, anchor="n")
 db_combo.pack()
 ppl_combo.pack()
