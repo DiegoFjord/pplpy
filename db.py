@@ -152,7 +152,7 @@ def add_info(person_id, text):
     # Secure parameterized query to prevent SQL Injection
     cursor.execute(
         "INSERT INTO Person_Info (person_id, text, date, tag) VALUES (?, ?, ?, ?)",
-        (person_id, text, "date", "tag"),
+        (person_id, "None", "date", text),
     )
 
     conn.commit()
@@ -174,12 +174,22 @@ def update_item(table_type, item_id, column, value):
     print(f"Successfully updated. Rows affected: {cursor.rowcount}")
 
 def delete_item(table_type, item_id):
-    sql_delete_query = f"""
+    sql_query = f"""
         DELETE FROM {table_type} 
         WHERE id = ?
     """
         
-    cursor.execute(sql_delete_query, (item_id,) )
+    cursor.execute(sql_query, (item_id,) )
     conn.commit()
     
     print(f"deleted. Rows affected: {cursor.rowcount}")
+
+def run_merge(value, type, id):
+    sql_query = None     
+    if(type == 0):
+        sql_query = f"""
+                "INSERT INTO Persons (dataset_id, name, note) VALUES (?, ?, ?)",
+        """
+        
+    cursor.execute(sql_query, (item_id,) )
+    conn.commit()
