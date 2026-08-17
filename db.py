@@ -5,6 +5,7 @@ import sqlite3
 conn = sqlite3.connect('example.db')
 cursor = conn.cursor()
 
+# NOTE: does not check for sql injection
 
 def dbsetup():
     cursor.execute("PRAGMA foreign_keys = ON;")
@@ -40,7 +41,7 @@ def dbsetup():
 
 
     conn.commit()
-    print("i made a table")
+
 
 def update_tree(tree,table_type,id):
     # Get column names first to build the table dynamically
@@ -184,12 +185,28 @@ def delete_item(table_type, item_id):
     
     print(f"deleted. Rows affected: {cursor.rowcount}")
 
-def run_merge(value, type, id):
-    sql_query = None     
-    if(type == 0):
-        sql_query = f"""
-                "INSERT INTO Persons (dataset_id, name, note) VALUES (?, ?, ?)",
-        """
-        
-    cursor.execute(sql_query, (item_id,) )
+# TODO not done
+def run_person_merge(db_id, name):
+    cursor.execute("""
+        SELECT MIN(id)
+        FROM Persons
+        WHERE dataset_id = ? AND name = ?
+    """, (db_id, name))
+
+    first_id = cursor.fetchone()[0]
+
+    cursor.execute("""
+        UPDATE Person_Info
+        SET person_id = ?
+        WHERE person_id IN (
+            SELECT id
+            FROM Persons
+            WHERE dataset_id = ? AND name = ? AND id != ?
+        )
+    """, (first_id, db_id, name, first_id))
+
     conn.commit()
+    print(f"Successfully updated. Rows affected: {cursor.rowcount}")
+
+def run_db_merge(value, type, id):
+    pass

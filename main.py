@@ -1,6 +1,7 @@
+# NOTE: change tables to (db, item, attribute)
 import tkinter as tk
 from tkinter import ttk
-from db import dbsetup, update_tree, add_user, update_item, delete_item, dataset_list, add_dataset, persons_list, info_list, add_info
+from db import dbsetup, update_tree, add_user, update_item, delete_item, dataset_list, add_dataset, persons_list, add_info, run_db_merge, run_person_merge
 
 root = tk.Tk()
 root.title("SQLite Database Viewer")
@@ -26,23 +27,25 @@ command = False
 dbsetup()
 #add_user()
 
-# set the chart to item children
+# dropdown click item
 def db_combo_action(out):
     global selected_type
     #global selected_id
     global table_type
     global table_id
     global db_id
+    global person_id
 
     selected_type = "Datasets"
     table_type = "Persons"
 
     table_id = db_ids[db_combo.current()]
     db_id = table_id
-    #selected_id = db_id
+    person_id = None
+
     entry_var.set(db_combo.get())
     ppl_combo.delete(0, "end")
-    info_combo.delete(0, "end")
+    info_entry_var.set("")
 
     label.config(text=f"{db_combo.get()}")
 
@@ -62,28 +65,35 @@ def ppl_combo_action(out):
     person_id = table_id
 
     entry_var.set(ppl_combo.get())
-    info_combo.delete(0, "end")
+    info_entry_var.set("")
 
     update_tree(tree,table_type,table_id)
-    update_combo_options(table_type)
 
-def info_combo_action(out):
-    global selected_type
-    global table_type
-    global table_id
-    global info_id
-
-    selected_type = "Person_Info"
-
-    entry_var.set(info_combo.get())
-    table_id = info_ids[info_combo.current()]
-    info_id = table_id
 # on text line enter
 def entry_enter(event):
     value = event.widget.get()
+    merge_val = merge_type.get()
+
     if(not value):
         return
-    
+
+    print("entry enter status ", command)
+    print("merge_type ", merge_val)
+    print("db_id ", db_id)
+
+    if(command):
+        if(merge_val == 0 and db_id):
+            print("running db merge")
+            run_db_merge(value, merge_val, db_id)
+        if(merge_val == 1 and db_id):
+            print("running person merge")
+            run_person_merge(db_id, value)
+            update_tree(tree,table_type,table_id)
+
+    else:
+        entry_update(value)
+
+def entry_update(value):
     if(selected_type == "Item"):
         if(curr_id and column):
             update_item(table_type, curr_id, column, value)
@@ -96,7 +106,7 @@ def entry_enter(event):
         update_combo_options(selected_type)
     if(selected_type == "Person_Info"):
         update_item(selected_type, info_id, "tag", value)
-        update_combo_options(selected_type)
+
 # chart click
 def on_tree_click(event):
     global column
@@ -143,30 +153,38 @@ def insert_info(event):
     text = event.widget.get().strip()
     if text and person_id:
         add_info(person_id, text)
-        update_combo_options("Person_Info")
         update_tree(tree,table_type,table_id)
         event.widget.delete(0, "end")
 
 def item_delete():
     delete_item(table_type, curr_id)
     update_tree(tree,table_type, table_id)
-    update_combo_options(table_type)
 
 def db_delete():
+    global ppl_options
+    global ppl_ids
+    global db_id
+
     if(db_id):
         delete_item("Datasets", db_id)
         tree.delete(*tree.get_children())
         update_combo_options("Datasets")
+
+        label.config(text="None")
+
         db_combo.delete(0, "end")
         ppl_combo.delete(0, "end")
-        info_combo.delete(0, "end")
-        label.config(text="None")
-        
+        info_entry_var.set("")
+
+        ppl_options, ppl_ids = [], []
+        ppl_combo["values"] = ppl_options
+
+        db_id = None
+
 # update combobox after adding item
 def update_combo_options(combo_type):
     global db_options, db_ids
     global ppl_options, ppl_ids
-    global info_options, info_ids
 
     if(combo_type == "Datasets"):
         db_options, db_ids = dataset_list()
@@ -175,16 +193,22 @@ def update_combo_options(combo_type):
         ppl_options, ppl_ids = persons_list(db_id)
         ppl_combo["values"] = ppl_options
     if(combo_type == "Person_Info"):
-        info_options, info_ids = info_list(person_id)
-        info_combo["values"] = info_options
+        print("update_combo_options N/A")
+
 # entry toggle function
 def entry_toggle():
     global command
-    if(command):
-        command_button.config(activebackground="SeaGreen1",bg="white")
-    else:
-        command_button.config(activebackground="white",bg="SeaGreen1")
     command = not command
+    if(command):
+        db_raido.pack(side=tk.LEFT)
+        person_radio.pack(side=tk.LEFT)
+
+        command_button.config(activebackground="white",bg="SeaGreen1")
+    else:
+        db_raido.pack_forget()
+        person_radio.pack_forget()
+
+        command_button.config(activebackground="SeaGreen1",bg="white")
 
 
 top = ttk.Frame()
@@ -199,6 +223,11 @@ entry_var = tk.StringVar()
 command_button = tk.Button(entry_row, text="[~]", command=entry_toggle)
 command_button.config(activebackground="SeaGreen1",bg="white")
 
+#radio buttons
+merge_type = tk.IntVar(value=0)
+db_raido = ttk.Radiobutton(entry_row, text="db", variable=merge_type, value=0)
+person_radio = ttk.Radiobutton(entry_row, text="person", variable=merge_type, value=1)
+
 entry = ttk.Entry(entry_row, textvariable=entry_var)
 entry.bind("<Return>", entry_enter)
 
@@ -211,16 +240,16 @@ db_combo.bind("<<ComboboxSelected>>", db_combo_action)
 db_combo.bind('<Return>', insert_db)
 
 # dropdown2
-ppl_options, ppl_ids = None, None
+ppl_options, ppl_ids = [], []
 ppl_combo = ttk.Combobox(drops, values=ppl_options)
 ppl_combo.bind("<<ComboboxSelected>>", ppl_combo_action)
 ppl_combo.bind('<Return>', insert_person)
 
-# dropdown2
-info_options, info_ids = None, None
-info_combo = ttk.Combobox(drops, values=info_options)
-info_combo.bind("<<ComboboxSelected>>", info_combo_action)
-info_combo.bind('<Return>', insert_info)
+# dropdown3
+# TODO: make this into an entry
+info_entry_var = tk.StringVar()
+info_entry = ttk.Entry(drops, textvariable=info_entry_var)
+info_entry.bind('<Return>', insert_info)
 
 
 # Create the Treeview (The tree)
@@ -240,12 +269,12 @@ label.pack(fill="both", expand=True, anchor="s")
 
 entry_row.pack(fill=tk.X)
 command_button.pack(side=tk.LEFT)
-entry.pack(fill="both", expand=True)
+entry.pack(fill="both", expand=True, side=tk.RIGHT)
 
 drops.pack(side=tk.LEFT, anchor="n")
 db_combo.pack()
 ppl_combo.pack()
-info_combo.pack()
+info_entry.pack(fill=tk.X)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
