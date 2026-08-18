@@ -208,5 +208,37 @@ def run_person_merge(db_id, name):
     conn.commit()
     print(f"Successfully updated. Rows affected: {cursor.rowcount}")
 
-def run_db_merge(value, type, id):
-    pass
+def run_db_merge(curr_db_id, foreign_db_id):
+    cursor.execute("BEGIN")
+
+    new_dataset_id = curr_db_id
+
+    # Get the people from the original dataset
+    cursor.execute("""
+        SELECT id, name, note
+        FROM Persons
+        WHERE dataset_id = ?
+    """, (foreign_db_id,))
+
+    people = cursor.fetchall()
+
+    for old_person_id, name, note in people:
+
+        # Create the new Person
+        cursor.execute("""
+            INSERT INTO Persons (dataset_id, name, note)
+            VALUES (?, ?, ?)
+        """, (new_dataset_id, name, note))
+
+        new_person_id = cursor.lastrowid
+
+        # Copy all Person_Info belonging to the old person
+        cursor.execute("""
+            INSERT INTO Person_Info (person_id, text, date, tag)
+            SELECT ?, text, date, tag
+            FROM Person_Info
+            WHERE person_id = ?
+        """, (new_person_id, old_person_id))
+
+    conn.commit()
+    print(f"Successfully updated. Rows affected: {cursor.rowcount}")

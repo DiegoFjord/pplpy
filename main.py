@@ -47,7 +47,7 @@ def db_combo_action(out):
     ppl_combo.delete(0, "end")
     info_entry_var.set("")
 
-    label.config(text=f"{db_combo.get()}")
+    label.config(text=f"{db_combo.get()} (id:{db_id})")
 
     update_tree(tree,table_type,table_id)
     update_combo_options(table_type)
@@ -78,13 +78,14 @@ def entry_enter(event):
         return
 
     print("entry enter status ", command)
-    print("merge_type ", merge_val)
+    print("merge_val ", merge_val)
+    print("input", value)
     print("db_id ", db_id)
 
     if(command):
         if(merge_val == 0 and db_id):
             print("running db merge")
-            run_db_merge(value, merge_val, db_id)
+            run_db_merge(db_id, value)
         if(merge_val == 1 and db_id):
             print("running person merge")
             run_person_merge(db_id, value)
