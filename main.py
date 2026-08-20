@@ -10,14 +10,14 @@ root.geometry("650x400")
 # type and id of last table pressed
 selected_type = None
 #selected_id = None
-# table and id of dropdown item selected/active table
+# table type displayed and ref id
+search_table = False # NOT a table type
 table_type = None
 table_id = None
 # current db person or info selected
 db_id = None
 person_id = None
-info_id = None
-# column and id of item selected
+# column and id of item selectet from tree
 column = None
 curr_id = None
 
@@ -31,6 +31,7 @@ dbsetup()
 def db_combo_action(out):
     global selected_type
     #global selected_id
+    global search_table
     global table_type
     global table_id
     global db_id
@@ -38,6 +39,7 @@ def db_combo_action(out):
 
     selected_type = "Datasets"
     table_type = "Persons"
+    search_table = False
 
     table_id = db_ids[db_combo.current()]
     db_id = table_id
@@ -53,6 +55,7 @@ def db_combo_action(out):
     update_combo_options(table_type)
 
 def ppl_combo_action(out):
+    global search_table
     global selected_type
     global table_type
     global table_id
@@ -60,6 +63,7 @@ def ppl_combo_action(out):
 
     selected_type = "Persons"
     table_type = "Person_Info"
+    search_table = False
 
     table_id = ppl_ids[ppl_combo.current()]
     person_id = table_id
@@ -71,18 +75,35 @@ def ppl_combo_action(out):
 
 # on text line enter
 def entry_enter(event):
+    global search_table
+
     value = event.widget.get()
     merge_val = merge_type.get()
 
     if(not value):
         return
 
-    print("entry enter status ", command)
-    print("merge_val ", merge_val)
-    print("input", value)
-    print("db_id ", db_id)
+    if(command == 0):
+        entry_update(value)
+    elif(command == 1):
+        entry_merge(merge_val, value)
+    elif(command == 2):
+        search_table = True
+        entry_search()
 
-    if(command):
+def entry_search():
+    global table_type
+    global table_id
+
+    table_id = None
+
+    value = entry_var.get()
+    col = col_combo.get()
+    table_type = table_combo.get()
+    if(db_id and col and table_type):
+        update_tree(tree,table_type,db_id, col, value)
+
+def entry_merge(merge_val, value):
         if(merge_val == 0 and db_id):
             print("running db merge")
             run_db_merge(db_id, value)
@@ -90,11 +111,12 @@ def entry_enter(event):
             print("running person merge")
             run_person_merge(db_id, value)
             update_tree(tree,table_type,table_id)
-
-    else:
-        entry_update(value)
-
+# updates tree if type is item
+# or updates selected combo box
 def entry_update(value):
+    if(value is None):
+        print("N/A")
+
     if(selected_type == "Item"):
         if(curr_id and column):
             update_item(table_type, curr_id, column, value)
@@ -105,8 +127,6 @@ def entry_update(value):
     if(selected_type == "Persons"):
         update_item(selected_type, person_id, "name", value)
         update_combo_options(selected_type)
-    if(selected_type == "Person_Info"):
-        update_item(selected_type, info_id, "tag", value)
 
 # chart click
 def on_tree_click(event):
@@ -159,7 +179,10 @@ def insert_info(event):
 
 def item_delete():
     delete_item(table_type, curr_id)
-    update_tree(tree,table_type, table_id)
+    if(search_table):
+        entry_search()
+    else:
+        update_tree(tree,table_type, table_id)
 
 def db_delete():
     global ppl_options
@@ -199,17 +222,31 @@ def update_combo_options(combo_type):
 # entry toggle function
 def entry_toggle():
     global command
-    command = not command
-    if(command):
+    command = (command + 1) % 3
+    if(command == 0):
+        table_combo.pack_forget()
+        col_combo.pack_forget()
+
+        command_button.config(activebackground="SeaGreen1",bg="white")
+    elif(command == 1):
         db_raido.pack(side=tk.LEFT)
         person_radio.pack(side=tk.LEFT)
-
         command_button.config(activebackground="white",bg="SeaGreen1")
-    else:
+    elif(command == 2):
         db_raido.pack_forget()
         person_radio.pack_forget()
 
-        command_button.config(activebackground="SeaGreen1",bg="white")
+        table_combo.pack(side=tk.LEFT)
+        col_combo.pack(side=tk.LEFT)
+
+        command_button.config(activebackground="white",bg="khaki1")
+
+def search_combo(out):
+    table_sel = table_combo.get()
+    if(table_sel == "Persons"):
+        col_combo["values"] = ["name","note",]
+    if(table_sel == "Person_Info"):
+        col_combo["values"] = ["tag", "text", "date"]
 
 
 top = ttk.Frame()
@@ -220,7 +257,6 @@ label = tk.Label(top, text="N/A",anchor="sw")
 
 entry_row = ttk.Frame()
 # entry to control data
-entry_var = tk.StringVar()
 command_button = tk.Button(entry_row, text="[~]", command=entry_toggle)
 command_button.config(activebackground="SeaGreen1",bg="white")
 
@@ -229,6 +265,13 @@ merge_type = tk.IntVar(value=0)
 db_raido = ttk.Radiobutton(entry_row, text="db", variable=merge_type, value=0)
 person_radio = ttk.Radiobutton(entry_row, text="person", variable=merge_type, value=1)
 
+# search combo
+table_combo = ttk.Combobox(entry_row ,values=["Persons","Person_Info"], state="readonly")
+col_combo = ttk.Combobox(entry_row ,values=[""])
+
+table_combo.bind("<<ComboboxSelected>>", search_combo)
+
+entry_var = tk.StringVar()
 entry = ttk.Entry(entry_row, textvariable=entry_var)
 entry.bind("<Return>", entry_enter)
 

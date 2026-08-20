@@ -43,7 +43,7 @@ def dbsetup():
     conn.commit()
 
 
-def update_tree(tree,table_type,id):
+def update_tree(tree,table_type,id,col=None,search_val=None):
     # Get column names first to build the table dynamically
     cursor.execute(f"PRAGMA table_info({table_type})")
 
@@ -52,10 +52,19 @@ def update_tree(tree,table_type,id):
     column_names = [" ", "ind"] + [col[1] for col in columns_info]
 
     # Fetch all rows from the table
-    if(table_type == "Persons"):
-        cursor.execute(f"SELECT * FROM Persons where dataset_id = ?", (id,))
-    if(table_type == "Person_Info"):
-        cursor.execute(f"SELECT * FROM Person_Info where person_id = ?", (id,))
+    if(col):
+        query = None
+        search_val = f"%{search_val}%"
+        if(table_type == "Persons"):
+            query = f"SELECT * FROM Persons where dataset_id = ? AND {col} LIKE ?"
+        if(table_type == "Person_Info"):
+            query = f"SELECT * FROM Person_Info WHERE person_id IN (SELECT id FROM Persons WHERE dataset_id = ?)AND {col} LIKE ?"
+        cursor.execute(query,(id, search_val))
+    else:
+        if(table_type == "Persons"):
+            cursor.execute("SELECT * FROM Persons where dataset_id = ?", (id,))
+        if(table_type == "Person_Info"):
+            cursor.execute("SELECT * FROM Person_Info where person_id = ?", (id,))
 
     rows = cursor.fetchall()
 
