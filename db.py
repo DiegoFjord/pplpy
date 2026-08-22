@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
 import sqlite3
+from pathlib import Path
+import csv
 
 conn = sqlite3.connect('example.db')
 cursor = conn.cursor()
@@ -41,7 +43,6 @@ def dbsetup():
 
 
     conn.commit()
-
 
 def update_tree(tree,table_type,id,col=None,search_val=None):
     # Get column names first to build the table dynamically
@@ -251,3 +252,73 @@ def run_db_merge(curr_db_id, foreign_db_id):
 
     conn.commit()
     print(f"Successfully updated. Rows affected: {cursor.rowcount}")
+
+def save_to_csv(db_id, dir, name):
+    Path(dir + "/" + name).mkdir(parents=True, exist_ok=True)
+
+    cursor.execute("SELECT name FROM Datasets WHERE id = ?",(db_id,))
+    with open(f"{dir}/{name}/d_out.csv", "w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.writer(csv_file)
+
+        # Dynamically extract and write the column headers
+        headers = [description[0] for description in cursor.description]
+        writer.writerow(headers)
+
+        # Write all data rows at once
+        writer.writerows(cursor.fetchall())
+
+    cursor.execute("SELECT * From Persons WHERE dataset_id = ?",(db_id,))
+    with open(f"{dir}/{name}/p_out.csv", "w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.writer(csv_file)
+
+        headers = [description[0] for description in cursor.description]
+        writer.writerow(headers)
+
+        writer.writerows(cursor.fetchall())
+
+    cursor.execute("""
+        SELECT person_id, text, date, tag FROM Person_Info
+        WHERE person_id IN (
+            SELECT id
+            FROM Persons
+            WHERE dataset_id = ?
+        )
+        """,(db_id,))
+    with open(f"{dir}/{name}/i_out.csv", "w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.writer(csv_file)
+
+        headers = [description[0] for description in cursor.description]
+        writer.writerow(headers)
+
+        writer.writerows(cursor.fetchall())
+
+    print("went to csv")
+
+def load_from_csv(path):
+    with open(f"{path}/d_out.csv", "r", encoding="utf-8") as csv_file:
+        csv_reader = csv.reader(csv_file)
+        next(csv_reader)
+        query = "INSERT INTO Datasets (name) VALUES (?)"
+        for row in csv_reader:
+            cursor.execute(query, row)
+
+    db_id = cursor.lastrowid
+    person_id_dict = {}
+    with open(f"{path}/p_out.csv", "r", encoding="utf-8") as csv_file:
+        csv_reader = csv.reader(csv_file)
+        next(csv_reader)
+        query = f"INSERT INTO Persons (dataset_id, name, note) VALUES ({db_id}, ?, ?)"
+        for row in csv_reader:
+            cursor.execute(query, row[2:])
+            person_id_dict[row[0]] = cursor.lastrowid
+            
+    with open(f"{path}/i_out.csv", "r", encoding="utf-8") as csv_file:
+        csv_reader = csv.reader(csv_file)
+        next(csv_reader)
+        for row in csv_reader:
+            query = f"INSERT INTO Person_Info (person_id, text, date, tag) VALUES ({person_id_dict[row[0]]}, ?, ?, ?)"
+            cursor.execute(query, row[1:])
+
+    conn.commit()
+    print("CSV successfully imported to SQLite")
+

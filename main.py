@@ -1,7 +1,9 @@
 # NOTE: change tables to (db, item, attribute)
 import tkinter as tk
 from tkinter import ttk
-from db import dbsetup, update_tree, add_user, update_item, delete_item, dataset_list, add_dataset, persons_list, add_info, run_db_merge, run_person_merge
+from db import load_from_csv, save_to_csv, dbsetup, update_tree, add_user, update_item, delete_item, dataset_list, add_dataset, persons_list, add_info, run_db_merge, run_person_merge
+from tkinter import filedialog
+from tkinter import messagebox
 
 root = tk.Tk()
 root.title("SQLite Database Viewer")
@@ -22,7 +24,7 @@ column = None
 curr_id = None
 
 # entry state
-command = False
+command = 0
 
 dbsetup()
 #add_user()
@@ -248,6 +250,41 @@ def search_combo(out):
     if(table_sel == "Person_Info"):
         col_combo["values"] = ["tag", "text", "date"]
 
+def open_folder():
+    # Opens the native OS file explorer window
+    filepath = filedialog.askdirectory(
+        title="im a teapot"
+    )
+    if filepath:
+        print(f"File opened: {filepath}")
+    return filepath
+
+def saveTo():
+    # not using for now
+    filepath = open_folder()
+    # save to folder
+    if(db_id):
+        save_to_csv(db_id, filepath, db_combo.get())
+    else:
+        messagebox.showinfo("db viewer", "no db selected")
+
+def load():
+    filepath = open_folder()
+    load_from_csv(filepath)
+    update_combo_options("Datasets")
+
+
+menu_bar = tk.Menu(root)
+
+file_menu = tk.Menu(menu_bar, tearoff=0)
+
+file_menu.add_command(label="saveTo", command=saveTo)
+file_menu.add_separator()
+file_menu.add_command(label="load", command=load)
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=root.quit)
+
+menu_bar.add_cascade(label="File", menu=file_menu)
 
 top = ttk.Frame()
 #dbdelete button
@@ -322,4 +359,5 @@ info_entry.pack(fill=tk.X)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+root.config(menu=menu_bar)
 root.mainloop()
