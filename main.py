@@ -102,6 +102,7 @@ def entry_search():
     value = entry_var.get()
     col = col_combo.get()
     table_type = table_combo.get()
+
     if(db_id and col and table_type):
         update_tree(tree,table_type,db_id, col, value)
 
@@ -244,7 +245,11 @@ def entry_toggle():
         command_button.config(activebackground="white",bg="khaki1")
 
 def search_combo(out):
+    global col
+
     table_sel = table_combo.get()
+    col_combo.set("")
+
     if(table_sel == "Persons"):
         col_combo["values"] = ["name","note",]
     if(table_sel == "Person_Info"):

@@ -267,7 +267,7 @@ def save_to_csv(db_id, dir, name):
         # Write all data rows at once
         writer.writerows(cursor.fetchall())
 
-    cursor.execute("SELECT * From Persons WHERE dataset_id = ?",(db_id,))
+    cursor.execute("SELECT id, name, note FROM Persons WHERE dataset_id = ?",(db_id,))
     with open(f"{dir}/{name}/p_out.csv", "w", newline="", encoding="utf-8") as csv_file:
         writer = csv.writer(csv_file)
 
@@ -309,7 +309,7 @@ def load_from_csv(path):
         next(csv_reader)
         query = f"INSERT INTO Persons (dataset_id, name, note) VALUES ({db_id}, ?, ?)"
         for row in csv_reader:
-            cursor.execute(query, row[2:])
+            cursor.execute(query, row[1:])
             person_id_dict[row[0]] = cursor.lastrowid
             
     with open(f"{path}/i_out.csv", "r", encoding="utf-8") as csv_file:
