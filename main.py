@@ -13,18 +13,20 @@ root.geometry("650x400")
 selected_type = None
 #selected_id = None
 # table type displayed and ref id
-search_table = False # NOT a table type
+search_mode = False
 table_type = None
-table_id = None
+ref_id = None
 # current db person or info selected
 db_id = None
 person_id = None
 # column and id of item selectet from tree
 column = None
-curr_id = None
+row_id = None
 
 # entry state
 command = 0
+
+search_query = None
 
 dbsetup()
 #add_user()
@@ -33,18 +35,18 @@ dbsetup()
 def db_combo_action(out):
     global selected_type
     #global selected_id
-    global search_table
+    global search_mode
     global table_type
-    global table_id
+    global ref_id
     global db_id
     global person_id
 
     selected_type = "Datasets"
     table_type = "Persons"
-    search_table = False
+    search_mode = False
 
-    table_id = db_ids[db_combo.current()]
-    db_id = table_id
+    ref_id = db_ids[db_combo.current()]
+    db_id = ref_id
     person_id = None
 
     entry_var.set(db_combo.get())
@@ -53,58 +55,68 @@ def db_combo_action(out):
 
     label.config(text=f"{db_combo.get()} (id:{db_id})")
 
-    update_tree(tree,table_type,table_id)
-    update_combo_options(table_type)
+    update_tree(tree,table_type,ref_id)
+    update_combo_options(table_type) # update persons list
 
 def ppl_combo_action(out):
-    global search_table
+    global search_mode
     global selected_type
     global table_type
-    global table_id
+    global ref_id
     global person_id
 
     selected_type = "Persons"
     table_type = "Person_Info"
-    search_table = False
+    search_mode = False
 
-    table_id = ppl_ids[ppl_combo.current()]
-    person_id = table_id
+    ref_id = ppl_ids[ppl_combo.current()]
+    person_id = ref_id
 
     entry_var.set(ppl_combo.get())
     info_entry_var.set("")
 
-    update_tree(tree,table_type,table_id)
+    update_tree(tree,table_type,ref_id)
 
 # on text line enter
 def entry_enter(event):
-    global search_table
+    global search_mode
 
     value = event.widget.get()
     merge_val = merge_type.get()
 
+    if(command == 0 and not search_mode):
+        print("entry val: ", value)
+        if (value):
+            update_tree(tree, table_type, ref_id, value)
+        else:
+            update_tree(tree, table_type, ref_id)
+
     if(not value):
         return
 
-    if(command == 0):
+    if(command == 1):
         entry_update(value)
-    elif(command == 1):
-        entry_merge(merge_val, value)
+        print("command 1")
     elif(command == 2):
-        search_table = True
-        entry_search()
+        entry_merge(merge_val, value)
+    elif(command == 3):
+        search_mode = True
+        entry_search(value)
 
-def entry_search():
+def entry_search(value):
+    global search_query
     global table_type
-    global table_id
+    global ref_id
 
-    table_id = None
+    search_query = value
+    ref_id = None
 
-    value = entry_var.get()
     col = col_combo.get()
     table_type = table_combo.get()
+    print("name of the col: " + col)
 
     if(db_id and col and table_type):
-        update_tree(tree,table_type,db_id, col, value)
+        update_tree(tree,table_type,db_id, value, col)
 
 def entry_merge(merge_val, value):
         if(merge_val == 0 and db_id):
@@ -113,7 +125,8 @@ def entry_merge(merge_val, value):
         if(merge_val == 1 and db_id):
             print("running person merge")
             run_person_merge(db_id, value)
-            update_tree(tree,table_type,table_id)
+            update_tree(tree,table_type,ref_id)
+
 # updates tree if type is item
 # or updates selected combo box
 def entry_update(value):
@@ -121,9 +134,9 @@ def entry_update(value):
         print("N/A")
 
     if(selected_type == "Item"):
-        if(curr_id and column):
-            update_item(table_type, curr_id, column, value)
-            update_tree(tree,table_type,table_id)
+        if(row_id and column):
+            update_item(table_type, row_id, column, value)
+            update_tree(tree,table_type,ref_id)
     if(selected_type == "Datasets"):
         update_item(selected_type, db_id, "name", value)
         update_combo_options(selected_type)
@@ -134,8 +147,10 @@ def entry_update(value):
 # chart click
 def on_tree_click(event):
     global column
-    global curr_id
+    global row_id
     global selected_type
+    global table_type
+    global ref_id
 
     row_id = tree.identify_row(event.y)
     col_id = tree.identify_column(event.x)
@@ -149,14 +164,27 @@ def on_tree_click(event):
     if row_id and col_id:
         item = tree.item(row_id, "values")
         ind = int(col_id[1:]) -1
-        curr_id = item[2]
+        row_id = item[2]
         selected_type = "Item"
         
         if(ind == 0):
             item_delete()
-        elif(ind > 1):
-            column = data_str[ind]
+
+        # if 1 let edit
+        if(ind > 1):
             entry_var.set(item[ind + 2])
+            column = data_str[ind]
+        # if not then go to entry
+        if(command != 1):
+            if(table_type == "Persons"):
+                table_type = "Person_Info"
+                update_tree(tree,"Person_Info",row_id)
+                ppl_combo.set(item[2 + 2])
+                ref_id = row_id
+                column = None
+                row_id = None
+                # set the drop down name to selected
+
 # insert/delete new item
 def insert_db(event):
     text = event.widget.get().strip()
@@ -170,23 +198,27 @@ def insert_person(event):
     if text and db_id:
         add_user(db_id, text)
         update_combo_options("Persons")
-        update_tree(tree,table_type,table_id)
+        update_tree(tree,table_type,ref_id)
         event.widget.delete(0, "end")
 
 def insert_info(event):
     text = event.widget.get().strip()
     if text and person_id:
         add_info(person_id, text)
-        update_tree(tree,table_type,table_id)
+        update_tree(tree,table_type,ref_id)
         event.widget.delete(0, "end")
 
-def item_delete():
-    delete_item(table_type, curr_id)
-    if(search_table):
-        entry_search()
+def run_update():
+    if(search_mode):
+        entry_search(search_query)
     else:
-        update_tree(tree,table_type, table_id)
+        update_tree(tree,table_type, ref_id)
 
+
+def item_delete():
+    delete_item(table_type, row_id)
+    run_update()
+    
 def db_delete():
     global ppl_options
     global ppl_ids
@@ -225,17 +257,18 @@ def update_combo_options(combo_type):
 # entry toggle function
 def entry_toggle():
     global command
-    command = (command + 1) % 3
+    command = (command + 1) % 4
     if(command == 0):
         table_combo.pack_forget()
         col_combo.pack_forget()
-
-        command_button.config(activebackground="SeaGreen1",bg="white")
+        command_button.config(activebackground="SteelBlue1",bg="white")
     elif(command == 1):
+        command_button.config(activebackground="SeaGreen1",bg="SteelBlue1")
+    elif(command == 2):
         db_raido.pack(side=tk.LEFT)
         person_radio.pack(side=tk.LEFT)
-        command_button.config(activebackground="white",bg="SeaGreen1")
-    elif(command == 2):
+        command_button.config(activebackground="khaki1",bg="SeaGreen1")
+    elif(command == 3):
         db_raido.pack_forget()
         person_radio.pack_forget()
 
@@ -300,7 +333,7 @@ label = tk.Label(top, text="N/A",anchor="sw")
 entry_row = ttk.Frame()
 # entry to control data
 command_button = tk.Button(entry_row, text="[~]", command=entry_toggle)
-command_button.config(activebackground="SeaGreen1",bg="white")
+command_button.config(activebackground="SteelBlue1",bg="white")
 
 #radio buttons
 merge_type = tk.IntVar(value=0)

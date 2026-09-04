@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 import csv
 
-conn = sqlite3.connect('example.db')
+conn = sqlite3.connect('start.db')
 cursor = conn.cursor()
 
 # NOTE: does not check for sql injection
@@ -44,7 +44,7 @@ def dbsetup():
 
     conn.commit()
 
-def update_tree(tree,table_type,id,col=None,search_val=None):
+def update_tree(tree,table_type,id,search_val=None, col=None):
     # Get column names first to build the table dynamically
     cursor.execute(f"PRAGMA table_info({table_type})")
 
@@ -53,13 +53,23 @@ def update_tree(tree,table_type,id,col=None,search_val=None):
     column_names = [" ", "ind"] + [col[1] for col in columns_info]
 
     # Fetch all rows from the table
-    if(col):
+    if(col and search_val):
         query = None
         search_val = f"%{search_val}%"
         if(table_type == "Persons"):
             query = f"SELECT * FROM Persons where dataset_id = ? AND {col} LIKE ?"
         if(table_type == "Person_Info"):
+            # search any tag in the db
             query = f"SELECT * FROM Person_Info WHERE person_id IN (SELECT id FROM Persons WHERE dataset_id = ?)AND {col} LIKE ?"
+        cursor.execute(query,(id, search_val))
+    elif(search_val):
+        query = None
+        search_val = f"%{search_val}%"
+        if(table_type == "Persons"):
+            query = f"SELECT * FROM Persons where dataset_id = ? AND name LIKE ?"
+        if(table_type == "Person_Info"):
+            # search tags from person
+            query = f"SELECT * FROM Person_Info WHERE person_id = ? AND tag LIKE ?"
         cursor.execute(query,(id, search_val))
     else:
         if(table_type == "Persons"):
